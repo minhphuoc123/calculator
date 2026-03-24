@@ -1,18 +1,19 @@
-import { PrismaClient } from '@prisma/client'
-import { Decimal } from '@prisma/client/runtime/library'
+import "dotenv/config";
+import { PrismaClient } from "@prisma/client";
+import { Decimal } from "@prisma/client/runtime/library";
 
-const prisma = new PrismaClient()
+const prisma = new PrismaClient();
 
-async function main() {
+async function seedPackageTypes() {
     const packageTypes = [
-        { code: 'VSAT', name: 'VSAT' },
-        { code: 'AIO', name: 'AIO' },
-        { code: 'CCTV', name: 'CCTV' },
-        { code: 'AV', name: 'AV' },
-    ]
+        { code: "VSAT", name: "Dịch vụ VSAT" },
+        { code: "AIO", name: "Giải pháp AIO" },
+        { code: "CCTV", name: "Hệ thống CCTV" },
+        { code: "AV", name: "Thiết bị AV" },
+    ];
 
     for (const item of packageTypes) {
-        await prisma.packageType.upsert({
+        const result = await prisma.packageType.upsert({
             where: { code: item.code },
             update: {
                 name: item.name,
@@ -23,36 +24,58 @@ async function main() {
                 name: item.name,
                 isActive: true,
             },
-        })
+        });
+
+        console.log(`✓ PackageType: ${result.code} - ${result.name}`);
     }
 
-    const existingSetting = await prisma.appSetting.findFirst()
+    const count = await prisma.packageType.count();
+    console.log(`→ Tổng số package types hiện có: ${count}`);
+}
+
+async function seedAppSettings() {
+    const existingSetting = await prisma.appSetting.findFirst();
 
     if (!existingSetting) {
-        await prisma.appSetting.create({
+        const created = await prisma.appSetting.create({
             data: {
                 vatRate: new Decimal("0.08"),
                 corporateTaxRate: new Decimal("0.20"),
             },
-        })
-    } else {
-        await prisma.appSetting.update({
-            where: { id: existingSetting.id },
-            data: {
-                vatRate: new Decimal("0.08"),
-                corporateTaxRate: new Decimal("0.20"),
-            },
-        })
+        });
+
+        console.log(`✓ AppSetting đã tạo mới: ${created.id}`);
+        return;
     }
 
-    console.log('Seed dữ liệu mặc định thành công')
+    const updated = await prisma.appSetting.update({
+        where: { id: existingSetting.id },
+        data: {
+            vatRate: new Decimal("0.08"),
+            corporateTaxRate: new Decimal("0.20"),
+        },
+    });
+
+    console.log(`✓ AppSetting đã cập nhật: ${updated.id}`);
+}
+
+async function main() {
+    console.log("=== BẮT ĐẦU SEED ===");
+    console.log("DATABASE_URL loaded:", Boolean(process.env.DATABASE_URL));
+
+    await seedPackageTypes();
+    await seedAppSettings();
+
+    console.log("=== SEED THÀNH CÔNG ===");
 }
 
 main()
     .catch((error) => {
-        console.error('Seed error:', error)
-        process.exit(1)
+        console.error("=== SEED ERROR ===");
+        console.error(error);
+        process.exit(1);
     })
     .finally(async () => {
-        await prisma.$disconnect()
-    })
+        await prisma.$disconnect();
+        console.log("Đã ngắt kết nối Prisma");
+    });
