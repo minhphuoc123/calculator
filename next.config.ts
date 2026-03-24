@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  distDir: "build",
+  distDir: process.env.VERCEL ? ".next" : "build",
 };
 
 export default nextConfig;
