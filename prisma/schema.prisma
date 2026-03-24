@@ -1,0 +1,72 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id              String            @id @default(cuid())
+  name            String
+  email           String            @unique
+  passwordHash    String
+  emailVerifiedAt DateTime?
+  isActive        Boolean           @default(true)
+  lastLoginAt     DateTime?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  resetPasswordCodeHash String?
+  resetPasswordExpiresAt  DateTime?
+
+  financialRecords FinancialRecord[]
+
+  @@map("users")
+}
+
+model PackageType {
+  id        String            @id @default(cuid())
+  code      String            @unique
+  name      String
+  isActive  Boolean           @default(true)
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+
+  financialRecords FinancialRecord[]
+
+  @@map("package_types")
+}
+
+model FinancialRecord {
+  id                  String      @id @default(cuid())
+  userId              String
+  recordDate          DateTime
+  packageTypeId       String
+  revenueBeforeVat    Decimal     @db.Decimal(18, 2)
+  costBeforeVat       Decimal     @db.Decimal(18, 2)
+  grossProfit         Decimal     @db.Decimal(18, 2)
+  vatAmount           Decimal     @db.Decimal(18, 2)
+  corporateTaxAmount  Decimal     @db.Decimal(18, 2)
+  netProfit           Decimal     @db.Decimal(18, 2)
+  note                String?
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  packageType PackageType @relation(fields: [packageTypeId], references: [id])
+
+  @@index([userId])
+  @@index([packageTypeId])
+  @@index([recordDate])
+  @@map("financial_records")
+}
+
+model AppSetting {
+  id                String    @id @default(cuid())
+  vatRate           Decimal   @db.Decimal(5, 4)
+  corporateTaxRate  Decimal   @db.Decimal(5, 4)
+  updatedAt         DateTime  @updatedAt
+
+  @@map("app_settings")
+}
