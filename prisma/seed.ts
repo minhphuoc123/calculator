@@ -1,4 +1,5 @@
-import { PrismaClient, Prisma } from '@prisma/client'
+import { PrismaClient } from '@prisma/client'
+import { Decimal } from '@prisma/client/runtime/library'
 
 const prisma = new PrismaClient()
 
@@ -30,16 +31,16 @@ async function main() {
     if (!existingSetting) {
         await prisma.appSetting.create({
             data: {
-                vatRate: new Prisma.Decimal('0.08'),
-                corporateTaxRate: new Prisma.Decimal('0.20'),
+                vatRate: new Decimal("0.08"),
+                corporateTaxRate: new Decimal("0.20"),
             },
         })
     } else {
         await prisma.appSetting.update({
             where: { id: existingSetting.id },
             data: {
-                vatRate: new Prisma.Decimal('0.08'),
-                corporateTaxRate: new Prisma.Decimal('0.20'),
+                vatRate: new Decimal("0.08"),
+                corporateTaxRate: new Decimal("0.20"),
             },
         })
     }
