@@ -1,9 +1,11 @@
+// File: src/components/dashboard/calculator-tabs.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetch, ApiError } from "@/lib/api";
 import { formatCurrency, parseCurrencyInput } from "@/lib/format";
+import Link from "next/link";
 import type {
     CreateRecordPayload,
     FinancialRecordItem,
@@ -79,10 +81,11 @@ function roundMoney(value: number) {
     return Math.round(value);
 }
 
-function calculateValues(data: PackageInput): PackageResult {
+// Đã cập nhật để nhận tham số thuế động
+function calculateValues(data: PackageInput, vatRate: number, citRate: number): PackageResult {
     const grossProfit = roundMoney(data.output - data.input);
-    const vat = roundMoney(grossProfit * 0.08);
-    const corporateTax = roundMoney(grossProfit * 0.2);
+    const vat = roundMoney(grossProfit * vatRate);
+    const corporateTax = roundMoney(grossProfit * citRate);
     const netProfit = roundMoney(grossProfit - corporateTax);
 
     return {
@@ -150,6 +153,9 @@ export default function CalculatorTabs() {
     const [message, setMessage] = useState("");
     const [isSaving, setIsSaving] = useState(false);
 
+    // Thêm state lưu cấu hình thuế (mặc định 8% và 20%)
+    const [settings, setSettings] = useState({ vatRate: 0.08, corporateTaxRate: 0.2 });
+
     const [packageTypes, setPackageTypes] = useState<PackageTypeItem[]>([]);
     const [records, setRecords] = useState<FinancialRecordItem[]>([]);
     const [isLoadingRecords, setIsLoadingRecords] = useState(false);
@@ -166,20 +172,32 @@ export default function CalculatorTabs() {
 
     const [useMonthFilter, setUseMonthFilter] = useState(true);
 
+    // Cập nhật load Initial Data (Package Types + Settings)
     useEffect(() => {
-        async function loadPackageTypes() {
+        async function loadInitialData() {
             try {
                 const response = await apiFetch<PackageTypesResponse>("/api/package-types", {
                     method: "GET",
                 });
-
                 setPackageTypes(response.data || []);
             } catch (error) {
                 console.error(error);
             }
+
+            try {
+                const settingsRes = await apiFetch<any>("/api/settings", { method: "GET" });
+                if (settingsRes.data) {
+                    setSettings({
+                        vatRate: Number(settingsRes.data.vatRate),
+                        corporateTaxRate: Number(settingsRes.data.corporateTaxRate)
+                    });
+                }
+            } catch (error) {
+                console.error("Chưa tải được cấu hình thuế, dùng mặc định");
+            }
         }
 
-        loadPackageTypes();
+        loadInitialData();
     }, []);
 
     useEffect(() => {
@@ -305,6 +323,7 @@ export default function CalculatorTabs() {
         }));
     }
 
+    // Truyền settings vào hàm tính toán
     function handleCalculate() {
         if (!canCalculate) {
             setMessage("Bạn cần nhập đầy đủ đầu ra, đầu vào và ngày ghi nhận.");
@@ -312,7 +331,7 @@ export default function CalculatorTabs() {
         }
 
         const currentInput = formData[activeTab];
-        const calculated = calculateValues(currentInput);
+        const calculated = calculateValues(currentInput, settings.vatRate, settings.corporateTaxRate);
 
         setResults((prev) => ({
             ...prev,
@@ -573,6 +592,13 @@ export default function CalculatorTabs() {
                         >
                             {isSaving ? "Đang lưu..." : "Lưu record"}
                         </button>
+
+                        <Link
+                            href="/settings"
+                            className="rounded-xl border border-blue-300 bg-white px-5 py-3 text-sm font-semibold text-blue-600 hover:bg-blue-50"
+                        >
+                            Cài đặt thuế
+                        </Link>
                     </div>
 
                     {message ? (
@@ -581,6 +607,7 @@ export default function CalculatorTabs() {
                         </div>
                     ) : null}
 
+                    {/* Cập nhật nhãn động theo settings */}
                     <div className="grid gap-4 grid-cols-1 xl:grid-cols-2">
                         <SummaryCard
                             title="Lợi nhuận gộp"
@@ -588,14 +615,14 @@ export default function CalculatorTabs() {
                             subtitle="Doanh thu chưa VAT - Giá vốn chưa VAT"
                         />
                         <SummaryCard
-                            title="VAT phải nộp 8%"
+                            title={`VAT phải nộp ${settings.vatRate * 100}%`}
                             value={activeResult.vat}
-                            subtitle="8% × Lợi nhuận gộp"
+                            subtitle={`${settings.vatRate * 100}% × Lợi nhuận gộp`}
                         />
                         <SummaryCard
-                            title="Thuế TNDN 20%"
+                            title={`Thuế TNDN ${settings.corporateTaxRate * 100}%`}
                             value={activeResult.corporateTax}
-                            subtitle="20% × Lợi nhuận gộp"
+                            subtitle={`${settings.corporateTaxRate * 100}% × Lợi nhuận gộp`}
                         />
                         <SummaryCard
                             title="Lợi nhuận ròng"
